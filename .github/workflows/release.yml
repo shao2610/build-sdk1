@@ -7,13 +7,13 @@ on:
       - "*" # Push events to matching v*, i.e. v1.0, v20.15.10
 
 jobs:
-  build-dart-sdk:
+  build-flutter-engine:
     runs-on: ubuntu-latest
     steps:
     - name: Maximize build space
       uses: easimon/maximize-build-space@v4
       with:
-          root-reserve-mb: 512   
+          root-reserve-mb: 512
           swap-size-mb: 1024
           remove-dotnet: 'true'
           remove-haskell: 'true'
@@ -28,56 +28,65 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: '2.x'
-    - name: Prepare
+    - name: Prepare Env
       run: |
         sudo apt-get update
         sudo apt-get install g++-aarch64-linux-gnu g++-arm-linux-gnueabihf
-        sudo apt-get install g++-multilib
+        sudo apt-get install g++-multilib gcc-multilib
         sudo apt-get install zip
     - name: Get Resource
       run: |
         git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
         export PATH="$PATH:$PWD/depot_tools"
-        mkdir dart-sdk
-        cd dart-sdk
-        fetch dart
-        cd sdk
-        git checkout 9094f738083c746a15b496ea5f882362a3dc4889
-        ls
-        sed -i "s#/data/local/tmp#/data/data/com.termux/files/home/tmp#g" runtime/bin/directory_android.cc
-        sed -n '431,433p' runtime/bin/directory_android.cc
-        cd ../
-        echo "target_os = ['android','linux']" >> .gclient
+        mkdir flutter-engine
+        echo 'solutions = [
+        {
+         "managed": False,
+         "name": "src/flutter",
+         "url": "https://github.com/flutter/engine",
+         "custom_deps": {},
+         "deps_file": "DEPS",
+         "safesync_url": "",
+        },
+        ]' >> flutter-engine/.gclient
+        cd flutter-engine
         gclient sync
-    - name: Build SDK
+        git checkout a9d88a4d182bdae23e3a4989abfb7ea25954aad1
+        gclient sync
+    - name: Build Engine
       run: |
         export PATH="$PATH:$PWD/depot_tools"
-        cd dart-sdk/sdk
-        ls tools/bots
-        ./tools/build.py --no-goma -m release --arch=arm64 --os=android create_sdk
-        ./tools/build.py --no-goma -m release --arch=arm --os=android create_sdk
-        ./tools/build.py --no-goma -m release --arch=arm64 create_sdk
-        ./tools/build.py --no-goma -m release --arch=arm create_sdk
-    - name: Zip SDK
+        cd flutter-engine/src
+        ls flutter/
+        ls flutter/tools
+        ./flutter/tools/gn --target-os android --linux-cpu arm64 --no-goma --runtime-mode release
+        ninja -C out/android_release_arm64
+        ./flutter/tools/gn --target-os android --linux-cpu arm64 --no-goma --runtime-mode debug
+        ninja -C out/android_debug_arm64
+        ./flutter/tools/gn --target-os linux --linux-cpu arm64 --no-goma --runtime-mode release
+        ninja -C out/linux_release_arm64
+        ./flutter/tools/gn --target-os linux --linux-cpu arm64 --no-goma --runtime-mode debug
+        ninja -C out/linux_debug_arm64
+    - name: Zip Engine
       run: |
-        cd dart-sdk/sdk/out
+        cd flutter-engine/src/out
         ls
-        zip -q -r dart-sdk-android-arm64.zip ReleaseAndroidARM64/dart-sdk
-        zip -q -r dart-sdk-android-arm.zip ReleaseAndroidARM/dart-sdk
-        zip -q -r dart-sdk-linux-arm64.zip ReleaseXARM64/dart-sdk
-        zip -q -r dart-sdk-linux-arm.zip ReleaseXARM/dart-sdk
+        zip -q -r linux_release_arm64.zip linux_release_arm64
+        zip -q -r linux_debug_arm64.zip linux_debug_arm64
+        zip -q -r android_release_arm64.zip android_release_arm64
+        zip -q -r android_debug_arm64.zip android_debug_arm64
     - name: Get current date
       id: date
       run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
     - name: Test with environment variables
       run: echo $TAG_NAME - $RELEASE_TIME
       env:
-          TAG_NAME: Dart-SDK
+          TAG_NAME: Flutter-ARM64
           RELEASE_TIME: ${{ steps.date.outputs.date }}
-    - name: Release SDK
+    - name: Release Engine
       uses: ncipollo/release-action@v1
       with:
-        artifacts: "dart-sdk/sdk/out/*.zip"
-        tag: Dart-SDK-${{ steps.date.outputs.date }}
+        artifacts: "flutter-engine/src/out/*.zip"
+        tag: Flutter-ARM64-${{ steps.date.outputs.date }}
         token: ${{ secrets.RELEASE_TOKEN }}
         allowUpdates: true
