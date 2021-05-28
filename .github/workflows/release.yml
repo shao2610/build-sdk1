@@ -88,5 +88,5 @@ jobs:
       with:
         artifacts: "flutter-engine/src/out/*.zip"
         tag: Flutter-ARM64-${{ steps.date.outputs.date }}
-        token: ${{ secrets.RELEASE_TOKEN }}
+        token: ${{ secrets.GITHUB_TOKEN }}
         allowUpdates: true
