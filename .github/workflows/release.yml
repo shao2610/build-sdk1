@@ -52,7 +52,7 @@ jobs:
         cd flutter-engine
         gclient sync
         git checkout -b remotes/origin/flutter-2.2-candidate.10
-        git checkout a9d88a4d182bdae23e3a4989abfb7ea25954aad1
+        gclient sync
     - name: Build Engine
       run: |
         export PATH="$PATH:$PWD/depot_tools"
