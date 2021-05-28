@@ -51,7 +51,7 @@ jobs:
         ]' >> flutter-engine/.gclient
         cd flutter-engine
         gclient sync
-        git checkout -b flutter-2.2-candidate.10
+        git checkout -b remotes/origin/flutter-2.2-candidate.10
         git checkout a9d88a4d182bdae23e3a4989abfb7ea25954aad1
     - name: Build Engine
       run: |
